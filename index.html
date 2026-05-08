@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Topper Coin (TPC) — Supra</title>
+<link rel="icon" type="image/png" href="/assets/logo.png" />
+<link rel="apple-touch-icon" href="/assets/logo.png" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0f0d;
+    --bg-elev: #101614;
+    --bg-elev-2: #131b18;
+    --border: #1c2622;
+    --border-strong: #25332d;
+    --text: #e6f1ec;
+    --text-dim: #8aa49a;
+    --accent: #4ade80;       /* mint green */
+    --accent-2: #22c55e;
+    --accent-soft: rgba(74, 222, 128, 0.12);
+    --green: #4ade80;
+    --red: #f87171;
+    --radius: 14px;
+    --shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+  }
+
+  body {
+    background:
+      radial-gradient(1100px 600px at 85% -10%, rgba(74, 222, 128, 0.14), transparent 60%),
+      radial-gradient(900px 500px at -10% 5%, rgba(34, 197, 94, 0.08), transparent 60%),
+      var(--bg);
+    min-height: 100vh;
+  }
+
+  .container {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* Nav */
+  header.nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 22px 0;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+
+  .brand-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .hero-logo {
+    width: clamp(140px, 18vw, 190px);
+    height: clamp(140px, 18vw, 190px);
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    margin: 0 auto 22px;
+    /* Warm orange glow that fits the dark theme */
+    filter:
+      drop-shadow(0 0 28px rgba(255, 130, 50, 0.45))
+      drop-shadow(0 0 60px rgba(255, 90, 30, 0.25));
+    animation: hero-logo-float 6s ease-in-out infinite;
+  }
+  @keyframes hero-logo-float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-4px); }
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 22px;
+  }
+  .nav-links a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 14px;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--text); }
+
+  /* Hero */
+  .hero {
+    padding: 56px 0 32px;
+    text-align: center;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--text-dim);
+    font-size: 12px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+  .badge .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 12px var(--green);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+
+  .hero h1 {
+    margin: 18px 0 8px;
+    font-size: clamp(40px, 6vw, 68px);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    background: linear-gradient(180deg, #ffffff, #b9c9c1);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .ticker {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 6px 14px;
+    background: var(--accent-soft);
+    border: 1px solid rgba(74, 222, 128, 0.35);
+    border-radius: 12px;
+    font-size: 0.45em;
+    vertical-align: middle;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    font-weight: 700;
+  }
+  .hero p {
+    color: var(--text-dim);
+    max-width: 620px;
+    margin: 14px auto 0;
+    font-size: 16px;
+  }
+  .pair-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 18px;
+    padding: 8px 14px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .pair-pill strong { color: var(--text); font-weight: 600; }
+
+  /* Card */
+  .card {
+    background: linear-gradient(180deg, var(--bg-elev), var(--bg-elev-2));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  /* Chart */
+  .chart-section { padding: 16px 0 8px; }
+  .chart-card { padding: 22px; }
+  .chart-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .chart-title { font-size: 12px; color: var(--text-dim); margin: 0; text-transform: uppercase; letter-spacing: 0.12em; }
+  .chart-price { font-size: 30px; font-weight: 600; letter-spacing: -0.01em; margin-top: 4px; }
+  .chart-price small {
+    color: var(--accent);
+    font-weight: 500;
+    font-size: 14px;
+    margin-left: 10px;
+    background: var(--accent-soft);
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+  .chart-meta { text-align: right; }
+  .chart-wrap {
+    position: relative;
+    width: 100%;
+    height: 380px;
+  }
+
+  .ccy-toggle {
+    display: inline-flex;
+    margin-top: 10px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .ccy-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+  }
+  .ccy-btn:hover { color: var(--text); }
+  .ccy-btn.is-active {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  /* Stats */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-top: 18px;
+  }
+  .stat {
+    padding: 18px 20px;
+  }
+  .stat .label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .stat .value {
+    margin-top: 8px;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .stat .value.up { color: var(--green); }
+  .stat .value.down { color: var(--red); }
+
+  /* Sections */
+  section.block { padding: 56px 0 16px; }
+  section.block h2 {
+    font-size: 28px;
+    margin: 0 0 18px;
+    letter-spacing: -0.01em;
+  }
+  .about-card { padding: 28px; }
+  .about-card p {
+    color: var(--text-dim);
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  /* Links */
+  .links-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .link-btn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 20px;
+    background: linear-gradient(180deg, var(--bg-elev), var(--bg-elev-2));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    text-decoration: none;
+    transition: transform 0.15s, border-color 0.2s, background 0.2s;
+  }
+  .link-btn:hover {
+    transform: translateY(-2px);
+    border-color: rgba(74, 222, 128, 0.5);
+  }
+  .link-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: grid; place-items: center;
+    background: var(--accent-soft);
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .link-icon svg { width: 20px; height: 20px; }
+  .link-text .t1 { font-weight: 600; font-size: 15px; }
+  .link-text .t2 { color: var(--text-dim); font-size: 13px; margin-top: 2px; }
+
+  /* Footer */
+  footer {
+    margin-top: 64px;
+    padding: 28px 0 40px;
+    border-top: 1px solid var(--border);
+  }
+  .footer-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .footer-label { color: var(--text-dim); font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; }
+  .contract {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    color: var(--text);
+    max-width: 100%;
+  }
+  .contract code {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  .copy-btn {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #07120c;
+    border: none;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    letter-spacing: 0.02em;
+  }
+  .copy-btn:hover { opacity: 0.9; }
+  .copy-btn:active { transform: scale(0.97); }
+  .copy-btn.copied { background: #16a34a; color: #fff; }
+
+  .footer-meta {
+    margin-top: 18px;
+    color: var(--text-dim);
+    font-size: 13px;
+    text-align: center;
+  }
+
+  @media (max-width: 820px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .links-grid { grid-template-columns: 1fr; }
+    .nav-links { display: none; }
+    .chart-wrap { height: 300px; }
+    .chart-meta { text-align: left; width: 100%; }
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <header class="nav">
+      <div class="brand">
+        <img class="brand-mark" src="/assets/logo.png" alt="Topper Coin logo" />
+        <span>Topper Coin</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#chart">Chart</a>
+        <a href="#about">About</a>
+        <a href="#links">Links</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <img class="hero-logo" src="/assets/logo.png" alt="Topper Coin logo" />
+      <span class="badge"><span class="dot"></span> Live on Supra</span>
+      <h1>Topper Coin <span class="ticker">TPC</span></h1>
+      <p>The community-driven token built on the Supra blockchain. Fast, fair, and fun.</p>
+      <div class="pair-pill">Trading pair · <strong>TPC / SUPRA</strong> on Atmos DEX</div>
+    </section>
+
+    <section id="chart" class="chart-section">
+      <div class="card chart-card">
+        <div class="chart-head">
+          <div>
+            <p class="chart-title" id="chartTitle">TPC / USD · Live from Atmos</p>
+            <div class="chart-price">
+              <span id="livePrice">$0.0000183</span>
+              <small id="liveChange">+0.00%</small>
+            </div>
+          </div>
+          <div class="chart-meta">
+            <p class="chart-title">Last update</p>
+            <p class="chart-price" style="font-size:14px;color:var(--text-dim);font-weight:500;margin-top:4px;" id="liveTime">—</p>
+            <div class="ccy-toggle" role="tablist" aria-label="Price currency">
+              <button class="ccy-btn is-active" data-ccy="USD"   type="button" role="tab" aria-selected="true">USD</button>
+              <button class="ccy-btn"           data-ccy="SUPRA" type="button" role="tab" aria-selected="false">SUPRA</button>
+            </div>
+            <div class="ccy-toggle" role="tablist" aria-label="Time frame">
+              <button class="ccy-btn"           data-frame="15m" type="button" role="tab" aria-selected="false">15M</button>
+              <button class="ccy-btn is-active" data-frame="1h"  type="button" role="tab" aria-selected="true">1H</button>
+              <button class="ccy-btn"           data-frame="12h" type="button" role="tab" aria-selected="false">12H</button>
+              <button class="ccy-btn"           data-frame="24h" type="button" role="tab" aria-selected="false">24H</button>
+            </div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="priceChart"></canvas>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat card">
+          <div class="label">Current Price</div>
+          <div class="value" id="statPrice">$0.0000183</div>
+        </div>
+        <div class="stat card">
+          <div class="label">24h Change</div>
+          <div class="value" id="statChange">+0.00%</div>
+        </div>
+        <div class="stat card">
+          <div class="label">Market Cap</div>
+          <div class="value" id="statMcap">$—</div>
+        </div>
+        <div class="stat card">
+          <div class="label">Holders</div>
+          <div class="value" id="statHolders">—</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="about" class="block">
+      <h2>About Topper Coin</h2>
+      <div class="card about-card">
+        <p>
+          Topper Coin (TPC) is a community-first token launched on the Supra blockchain.
+          Built around fast finality and low fees, TPC aims to be a playful and accessible entry point
+          into the Supra ecosystem. This page is a placeholder — full tokenomics, roadmap, and
+          community milestones will be published soon.
+        </p>
+      </div>
+    </section>
+
+    <section id="links" class="block">
+      <h2>Links</h2>
+      <div class="links-grid">
+        <a class="link-btn" href="https://suprascan.io/fa/0x99f84c4fda663bf3baf3a1b0980386ca084c3e9340a4d3f8713cd54ec85f4cea/f" target="_blank" rel="noopener">
+          <div class="link-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          </div>
+          <div class="link-text">
+            <div class="t1">Supra Explorer</div>
+            <div class="t2">View on-chain activity</div>
+          </div>
+        </a>
+        <a class="link-btn" href="https://x.com/toppercoin1965" target="_blank" rel="noopener">
+          <div class="link-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          </div>
+          <div class="link-text">
+            <div class="t1">X / Twitter</div>
+            <div class="t2">@toppercoin1965</div>
+          </div>
+        </a>
+        <a class="link-btn" href="https://app.atmos.ag" target="_blank" rel="noopener">
+          <div class="link-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h13l-3-3"/><path d="M21 17H8l3 3"/></svg>
+          </div>
+          <div class="link-text">
+            <div class="t1">Atmos DEX</div>
+            <div class="t2">Trade TPC / SUPRA</div>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <footer>
+      <div class="footer-row">
+        <span class="footer-label">Contract Address</span>
+        <div class="contract">
+          <code id="contractAddr">0x99f84c4fda663bf3baf3a1b0980386ca084c3e9340a4d3f8713cd54ec85f4cea</code>
+          <button class="copy-btn" id="copyBtn" type="button">Copy</button>
+        </div>
+      </div>
+      <div class="footer-meta">© 2026 Topper Coin · Built on Supra</div>
+    </footer>
+  </div>
+
+<script>
+  // ---- Config ----
+  const FALLBACK_PRICE = 0.0000183;     // used only if the RPC is unreachable
+  const TICK_MS = 3000;
+  const TPC_DECIMALS = 6;               // matches FA metadata + Atmos pricing row
+
+  // The chart shows historical OHLC bars from /history.php (which proxies
+  // Atmos GraphQL `pricing_ohlc`). Each frame maps to a fixed bucket size;
+  // the live tick rewrites the most recent bucket every TICK_MS until enough
+  // wall-clock time elapses to roll into a new bucket.
+  const FRAME_INTERVAL_MS = {
+    '15m': 15 * 60 * 1000,
+    '1h':  60 * 60 * 1000,
+    '12h': 12 * 60 * 60 * 1000,
+    '24h': 24 * 60 * 60 * 1000,
+  };
+  const DEFAULT_FRAME = '1h';
+  const HISTORY_URL = '/history.php';
+
+  // Token addresses (Atmos / Supra).
+  const TPC_FA    = "0x99f84c4fda663bf3baf3a1b0980386ca084c3e9340a4d3f8713cd54ec85f4cea";
+  const USDC_FA   = "0xf90b4b9d4a9d87c39fb3140513e52edc3ead5eaddcb9881b02becdeb63c5793d";
+  // SUPRA's canonical 32-byte FA address. The short form "0xa" works for the
+  // Supra RPC (which normalizes), but Atmos's pricing table has two SUPRA rows
+  // — the short form is stale (months old), the long form is the live row.
+  const SUPRA_FA  = "0x000000000000000000000000000000000000000000000000000000000000000a";
+
+  // ---- Primary source: Atmos Protocol indexer (GraphQL) ----
+  // One round-trip pulls TPC + SUPRA spot USD prices; TPC/SUPRA = ratio.
+  const ATMOS_API = "https://api.atmos.ag/graphql";
+  const ATMOS_QUERY = `query($addrs:[String!]){pricing(where:{fa_address:{_in:$addrs}}){fa_address usd_price}}`;
+
+  async function fetchPricesFromAtmos() {
+    const r = await fetch(ATMOS_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: ATMOS_QUERY, variables: { addrs: [TPC_FA, SUPRA_FA] } }),
+    });
+    if (!r.ok) throw new Error("Atmos API " + r.status);
+    const j = await r.json();
+    if (j.errors) throw new Error("Atmos GraphQL: " + j.errors[0]?.message);
+    const rows = j?.data?.pricing ?? [];
+    const byAddr = Object.fromEntries(rows.map(p => [p.fa_address, Number(p.usd_price)]));
+    const tpcUsd   = byAddr[TPC_FA];
+    const supraUsd = byAddr[SUPRA_FA];
+    if (tpcUsd == null || supraUsd == null || supraUsd === 0) {
+      throw new Error("Atmos: missing pricing row(s) for TPC/SUPRA");
+    }
+    return { usd: tpcUsd, supra: tpcUsd / supraUsd };
+  }
+
+  // ---- Fallback: Atmos liquidity pool view function on Supra mainnet ----
+  // Reads the TPC/SUPRA and USDC/SUPRA pools directly. Slightly different
+  // from the UI price because it doesn't apply Smart Router multi-hop routing.
+  const SUPRA_RPC = "https://rpc-mainnet.supra.com/rpc/v1/view";
+  const ATMOS_FN  = "0xa4a4a31116e114bf3c4f4728914e6b43db73279a4421b0768993e07248fe2234::liquidity_pool::simulate_swap_exact_in_weighted";
+  const TPC_POOL  = "0x5235d477677a6c5f18f98250fa3f27d3ca81885d2ed9affd4049973379d213d6";
+  const USDC_POOL = "0x4274ed3b66bee46d049d6217ea005438aef6599674eeb37b77b19aa7a0a91acd";
+  const ONE_UNIT  = "1000000"; // TPC and SUP_USDC both have 6 decimals
+
+  async function simulateSwap(pool, frm, to, amt) {
+    const r = await fetch(SUPRA_RPC, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        function: ATMOS_FN,
+        type_arguments: [],
+        arguments: [pool, frm, to, amt, { vec: [] }],
+      }),
+    });
+    if (!r.ok) throw new Error("Supra RPC " + r.status);
+    const j = await r.json();
+    const out = j?.result?.[0]?.amount_out;
+    if (!out) throw new Error("Bad RPC response");
+    return BigInt(out);
+  }
+
+  // Returns { usd, supra } from on-chain pool reads. Both pool fees cancel in
+  // the USD ratio. SUPRA has 8 decimals, TPC has 6 — so 1 TPC at 1e6 base units
+  // returning N base SUPRA is N / 1e8 SUPRA per TPC.
+  async function fetchPricesFromSupraPool() {
+    const [tpcToSupra, usdcToSupra] = await Promise.all([
+      simulateSwap(TPC_POOL,  TPC_FA,  SUPRA_FA, ONE_UNIT),
+      simulateSwap(USDC_POOL, USDC_FA, SUPRA_FA, ONE_UNIT),
+    ]);
+    const SCALE = 10n ** 18n;
+    return {
+      usd:   Number((tpcToSupra * SCALE) / usdcToSupra) / 1e18,
+      supra: Number(tpcToSupra) / 1e8,
+    };
+  }
+
+  // SUPRA-denominated TPC price from the on-chain TPC↔SUPRA pool. Returns
+  // the post-fee output of "swap 1 TPC -> SUPRA", which is the rate the Atmos
+  // swap UI displays. The pricing-table ratio (TPC.usd / SUPRA.usd) yields a
+  // ~50% higher number because Atmos prices SUPRA from deeper pairs that
+  // disagree with the TPC pool's own spot — matching the UI quote is more
+  // useful for users comparing against what they see on Atmos.
+  async function fetchTpcSupraFromSwap() {
+    const out = await simulateSwap(TPC_POOL, TPC_FA, SUPRA_FA, ONE_UNIT);
+    return Number(out) / 1e8;  // SUPRA has 8 decimals
+  }
+
+  // Combined fetch: Atmos pricing for USD (clean spot, matches mcap),
+  // simulate_swap for SUPRA (matches the Atmos swap UI). Run in parallel.
+  // On partial failure, fall through to the next-best derivation.
+  async function fetchTpcPrices() {
+    const [atmos, swap] = await Promise.allSettled([
+      fetchPricesFromAtmos(),
+      fetchTpcSupraFromSwap(),
+    ]);
+
+    if (atmos.status === 'fulfilled' && swap.status === 'fulfilled') {
+      return { usd: atmos.value.usd, supra: swap.value };
+    }
+    if (atmos.status === 'fulfilled') {
+      console.warn('[TPC] swap quote failed, using Atmos pricing ratio for SUPRA:', swap.reason?.message);
+      return atmos.value;  // Atmos-derived SUPRA ratio — different from UI but at least populated
+    }
+    if (swap.status === 'fulfilled') {
+      console.warn('[TPC] Atmos pricing failed, using Supra pool for USD:', atmos.reason?.message);
+      const pool = await fetchPricesFromSupraPool();
+      return { usd: pool.usd, supra: swap.value };
+    }
+    throw new Error('all TPC price sources failed (Atmos + Supra RPC)');
+  }
+
+  // ---- Total supply via the framework's fungible_asset::supply view function.
+  // Supra RPC returns Option<u128>; we unwrap the [{vec:["..."]}] shape.
+  // Used as the "circulating supply" for market cap — TPC has no separate
+  // circulating-supply oracle, and the FA has no locked/escrow tranches we know
+  // of, so total ≈ circulating here.
+  async function fetchTpcTotalSupply() {
+    const r = await fetch(SUPRA_RPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        function: '0x1::fungible_asset::supply',
+        type_arguments: ['0x1::fungible_asset::Metadata'],
+        arguments: [TPC_FA],
+      }),
+    });
+    if (!r.ok) throw new Error('Supra supply RPC ' + r.status);
+    const j = await r.json();
+    const raw = j?.result?.[0]?.vec?.[0];
+    if (!raw) throw new Error('Bad supply response');
+    return Number(BigInt(raw)) / Math.pow(10, TPC_DECIMALS);
+  }
+
+  // Parallel histories for the two display currencies. Same length and
+  // timestamps; on every tick we push to both, and the chart reads whichever
+  // one matches `currency`.
+  const history = { USD: [], SUPRA: [] };
+  let timestamps = [];
+  let lastPriceUsd   = FALLBACK_PRICE;
+  let lastPriceSupra = 0;            // populated on first successful fetch
+  let currency = 'USD';              // 'USD' | 'SUPRA'
+  let currentFrame = DEFAULT_FRAME;  // '15m' | '1h' | '12h' | '24h'
+  let cachedTotalSupply = null;      // human-units (post-decimals); null until fetched
+
+  // ---- Formatters ----
+  function fmtTime(d) {
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // Axis labels need a date prefix because 12h/24h frames span many days,
+  // and bare "00:00" repeats render the X axis ambiguous.
+  const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function fmtAxisLabel(d) {
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}, ${hh}:${mm}`;
+  }
+
+  function fmtUsdSmall(n) {
+    // For tiny values like $0.0000183 — show 7 significant digits
+    if (n >= 1) return '$' + n.toFixed(2);
+    if (n >= 0.01) return '$' + n.toFixed(4);
+    if (n >= 0.0001) return '$' + n.toFixed(6);
+    return '$' + n.toFixed(7);
+  }
+
+  // Plain decimal SUPRA, scaled to give ~4 significant digits.
+  function fmtSupra(n) {
+    if (n >= 100)    return n.toFixed(0) + ' SUPRA';
+    if (n >= 1)      return n.toFixed(2) + ' SUPRA';
+    if (n >= 0.01)   return n.toFixed(4) + ' SUPRA';
+    if (n >= 0.0001) return n.toFixed(6) + ' SUPRA';
+    return n.toFixed(8) + ' SUPRA';
+  }
+
+  function fmtPrice(n) {
+    return currency === 'USD' ? fmtUsdSmall(n) : fmtSupra(n);
+  }
+
+  function fmtCompact(n) {
+    if (n >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
+    if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+    if (n >= 1e3) return '$' + (n / 1e3).toFixed(2) + 'K';
+    return '$' + n.toFixed(2);
+  }
+
+  function fmtNumber(n) { return n.toLocaleString('en-US'); }
+
+  // Fetch historical OHLC bars from the same-origin /history.php proxy.
+  // Returns { points: [{ t, usd, supra }, ...] } in ascending time order.
+  // Throws on network/proxy errors so the caller can render a clear empty
+  // state instead of fabricated data.
+  async function fetchHistory(frame) {
+    const r = await fetch(HISTORY_URL + '?granularity=' + encodeURIComponent(frame));
+    if (!r.ok) throw new Error('history proxy ' + r.status);
+    const j = await r.json();
+    if (j.error) throw new Error('history: ' + j.error);
+    if (!Array.isArray(j.points) || j.points.length === 0) {
+      throw new Error('history: empty payload');
+    }
+    return j.points;
+  }
+
+  // Replace the chart series with bars fetched from /history.php for `frame`.
+  // The two display currencies share timestamps (Atmos publishes both close
+  // values at the same bucket boundary). Seeds last-tick state from the
+  // newest bar so the live tick has something sensible to update.
+  function seedHistoryFromPoints(points) {
+    timestamps = points.map(p => Date.parse(p.t));
+    history.USD   = points.map(p => Number(p.usd));
+    history.SUPRA = points.map(p => Number(p.supra));
+    lastPriceUsd   = history.USD[history.USD.length - 1];
+    lastPriceSupra = history.SUPRA[history.SUPRA.length - 1];
+  }
+
+  // ---- Chart ----
+  const canvas = document.getElementById('priceChart');
+  const ctx = canvas.getContext('2d');
+  const gradient = ctx.createLinearGradient(0, 0, 0, 380);
+  gradient.addColorStop(0, 'rgba(74, 222, 128, 0.35)');
+  gradient.addColorStop(1, 'rgba(74, 222, 128, 0.00)');
+
+  let chart;
+  function initChart() {
+    chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: timestamps.map(t => fmtAxisLabel(new Date(t))),
+      datasets: [{
+        label: 'TPC / ' + currency,
+        data: history[currency].slice(),
+        borderColor: '#4ade80',
+        backgroundColor: gradient,
+        borderWidth: 2,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: '#4ade80',
+        pointHoverBorderColor: '#fff',
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#101614',
+          borderColor: '#25332d',
+          borderWidth: 1,
+          titleColor: '#e6f1ec',
+          bodyColor: '#e6f1ec',
+          padding: 10,
+          callbacks: {
+            label: (c) => fmtPrice(c.parsed.y),
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: '#8aa49a', maxTicksLimit: 8, font: { size: 11 } },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+        },
+        y: {
+          ticks: {
+            color: '#8aa49a',
+            font: { size: 11 },
+            callback: (v) => fmtPrice(v),
+          },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+        },
+      },
+      animation: { duration: 500 },
+    },
+  });
+  }
+
+  // ---- Stats ----
+  const elLivePrice = document.getElementById('livePrice');
+  const elLiveChange = document.getElementById('liveChange');
+  const elLiveTime = document.getElementById('liveTime');
+  const elStatPrice = document.getElementById('statPrice');
+  const elStatChange = document.getElementById('statChange');
+  const elStatMcap = document.getElementById('statMcap');
+  const elStatHolders = document.getElementById('statHolders');
+
+  // Holder count: comes from /holders.php on the same domain — a tiny PHP
+  // proxy that calls Suprascan's /api/graphql server-side (their endpoint
+  // doesn't send CORS headers, so the browser can't hit it directly).
+  // Fallback if the proxy itself is unreachable on first load.
+  const HOLDERS_FALLBACK = 1247;
+  const HOLDERS_REFRESH_MS = 60_000;
+  let cachedHolders = null;  // Number from proxy; null = use fallback
+
+  async function fetchHolderCount() {
+    const r = await fetch('/holders.php', { cache: 'no-store' });
+    if (!r.ok) throw new Error('holders proxy ' + r.status);
+    const j = await r.json();
+    if (typeof j.holders !== 'number') throw new Error('bad holders payload');
+    return j.holders;
+  }
+
+  function setChange(el, pct) {
+    const sign = pct >= 0 ? '+' : '';
+    el.textContent = sign + pct.toFixed(2) + '%';
+    el.classList.toggle('up', pct >= 0);
+    el.classList.toggle('down', pct < 0);
+  }
+
+  function renderStats() {
+    const series = history[currency];
+    const first = series[0];
+    const last = series[series.length - 1];
+    const changePct = ((last - first) / first) * 100;
+
+    elLivePrice.textContent = fmtPrice(last);
+    setChange(elLiveChange, changePct);
+    elLiveTime.textContent = fmtTime(new Date(timestamps[timestamps.length - 1]));
+
+    elStatPrice.textContent = fmtPrice(last);
+    setChange(elStatChange, changePct);
+    // Market cap is always USD — derived from the USD series, regardless of the
+    // currency toggle.
+    if (cachedTotalSupply != null) {
+      elStatMcap.textContent = fmtCompact(lastPriceUsd * cachedTotalSupply);
+    } // else leave whatever was last shown (initial DOM value or previous tick)
+    elStatHolders.textContent = fmtNumber(cachedHolders ?? HOLDERS_FALLBACK);
+  }
+
+  // Push a fresh tick onto both currency series, advancing the bucket if
+  // enough time has passed for the active frame.
+  function applyLivePrices(usd, supra) {
+    const now = Date.now();
+    lastPriceUsd = usd;
+    lastPriceSupra = supra;
+    if (timestamps.length === 0) return;
+    const bucketMs = FRAME_INTERVAL_MS[currentFrame];
+    const lastBucketTime = timestamps[timestamps.length - 1];
+    if (now - lastBucketTime >= bucketMs) {
+      history.USD.push(usd); history.SUPRA.push(supra); timestamps.push(now);
+    } else {
+      history.USD[history.USD.length - 1]     = usd;
+      history.SUPRA[history.SUPRA.length - 1] = supra;
+      timestamps[timestamps.length - 1]       = now;
+    }
+    chart.data.labels = timestamps.map(t => fmtAxisLabel(new Date(t)));
+    chart.data.datasets[0].data = history[currency].slice();
+    chart.update('none');
+
+    renderStats();
+  }
+
+  async function tick() {
+    try {
+      const { usd, supra } = await fetchTpcPrices();
+      applyLivePrices(usd, supra);
+    } catch (err) {
+      // Network blip — leave chart untouched, surface in console.
+      console.warn('[TPC] live price fetch failed:', err.message);
+    }
+    // If supply hasn't loaded yet, retry on each tick until it does.
+    if (cachedTotalSupply == null) {
+      try {
+        cachedTotalSupply = await fetchTpcTotalSupply();
+        renderStats();
+      } catch (err) {
+        console.warn('[TPC] supply fetch retry failed:', err.message);
+      }
+    }
+  }
+
+  async function refreshHolders() {
+    try {
+      cachedHolders = await fetchHolderCount();
+      renderStats();
+    } catch (err) {
+      console.warn('[TPC] holders fetch failed:', err.message);
+      // Keep previous value (or HOLDERS_FALLBACK if we never had one).
+    }
+  }
+
+  // ---- Currency toggle ----
+  function setCurrency(next) {
+    if (next !== 'USD' && next !== 'SUPRA') return;
+    if (next === currency) return;
+    currency = next;
+    document.querySelectorAll('.ccy-btn').forEach(btn => {
+      btn.classList.toggle('is-active', btn.dataset.ccy === currency);
+      btn.setAttribute('aria-selected', btn.dataset.ccy === currency ? 'true' : 'false');
+    });
+    document.getElementById('chartTitle').textContent = 'TPC / ' + currency + ' · Live from Atmos';
+    if (chart) {
+      chart.data.datasets[0].label = 'TPC / ' + currency;
+      chart.data.datasets[0].data = history[currency].slice();
+      chart.update();
+    }
+    renderStats();
+  }
+  document.querySelectorAll('.ccy-btn[data-ccy]').forEach(btn => {
+    btn.addEventListener('click', () => setCurrency(btn.dataset.ccy));
+  });
+
+  // ---- Time frame toggle ----
+  // Refetches history at the new granularity. The live tick is left running;
+  // its next pass will rewrite the latest bucket on the new series.
+  async function setFrame(next) {
+    if (!FRAME_INTERVAL_MS.hasOwnProperty(next)) return;
+    if (next === currentFrame) return;
+    currentFrame = next;
+    document.querySelectorAll('.ccy-btn[data-frame]').forEach(btn => {
+      btn.classList.toggle('is-active', btn.dataset.frame === currentFrame);
+      btn.setAttribute('aria-selected', btn.dataset.frame === currentFrame ? 'true' : 'false');
+    });
+    try {
+      const points = await fetchHistory(currentFrame);
+      seedHistoryFromPoints(points);
+      chart.data.labels = timestamps.map(t => fmtAxisLabel(new Date(t)));
+      chart.data.datasets[0].data = history[currency].slice();
+      chart.update();
+      renderStats();
+    } catch (err) {
+      console.warn('[TPC] frame change failed:', err.message);
+    }
+  }
+  document.querySelectorAll('.ccy-btn[data-frame]').forEach(btn => {
+    btn.addEventListener('click', () => setFrame(btn.dataset.frame));
+  });
+
+  // ---- Init: fetch history + live prices + supply + holders, then start ticking ----
+  // History is required for the chart; if it fails we still render an empty
+  // chart with whatever the live tick produces. Live price + supply + holders
+  // run in parallel; their failures are non-fatal.
+  (async function init() {
+    const [historyResult, prices, supply, holders] = await Promise.all([
+      fetchHistory(currentFrame).catch(err => {
+        console.warn('[TPC] initial history fetch failed:', err.message);
+        return null;
+      }),
+      fetchTpcPrices().catch(err => {
+        console.warn('[TPC] initial price fetch failed, using fallback:', err.message);
+        return { usd: FALLBACK_PRICE, supra: 0 };
+      }),
+      fetchTpcTotalSupply().catch(err => {
+        console.warn('[TPC] initial supply fetch failed:', err.message);
+        return null;
+      }),
+      fetchHolderCount().catch(err => {
+        console.warn('[TPC] initial holders fetch failed, using fallback:', err.message);
+        return null;
+      }),
+    ]);
+    cachedTotalSupply = supply;
+    cachedHolders = holders;
+
+    if (historyResult) {
+      seedHistoryFromPoints(historyResult);
+    } else {
+      // No history available — start with a single live point so the chart
+      // is honest about what it shows (no fabricated random walk).
+      timestamps = [Date.now()];
+      history.USD   = [prices.usd];
+      history.SUPRA = [prices.supra];
+      lastPriceUsd   = prices.usd;
+      lastPriceSupra = prices.supra;
+    }
+    initChart();
+    renderStats();
+    setInterval(tick, TICK_MS);
+    setInterval(refreshHolders, HOLDERS_REFRESH_MS);
+  })();
+
+  // ---- Copy button ----
+  const copyBtn = document.getElementById('copyBtn');
+  const contractAddr = document.getElementById('contractAddr');
+  copyBtn.addEventListener('click', async () => {
+    const text = contractAddr.textContent.trim();
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    copyBtn.textContent = 'Copied!';
+    copyBtn.classList.add('copied');
+    setTimeout(() => {
+      copyBtn.textContent = 'Copy';
+      copyBtn.classList.remove('copied');
+    }, 1600);
+  });
+</script>
+</body>
+</html>
