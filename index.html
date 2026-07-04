@@ -227,6 +227,9 @@
     text-align: center;
     padding: 0 20px;
   }
+  /* The hidden attribute's UA style loses to the display:grid above —
+     without this rule the overlay would show even over a healthy chart. */
+  .chart-empty[hidden] { display: none; }
 
   .ccy-toggle {
     display: inline-flex;
