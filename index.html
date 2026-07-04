@@ -556,8 +556,19 @@
 
   // Every fetch gets a hard timeout so a hung upstream can never stall the
   // page indefinitely (a connection that hangs after accept() never rejects).
+  // AbortSignal.timeout only exists in Safari 16+ / Chrome 103+ — on older
+  // browsers fall back to a manual AbortController timer, and on ancient ones
+  // to a plain fetch (no timeout beats no data at all).
   function fetchT(url, opts = {}) {
-    return fetch(url, { ...opts, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+      return fetch(url, { ...opts, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    }
+    if (typeof AbortController !== 'undefined') {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+      return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+    }
+    return fetch(url, opts);
   }
 
   // ---- Primary source: Atmos Protocol indexer (GraphQL) ----
