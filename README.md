@@ -5,8 +5,9 @@ Showcase site for [Topper Coin](https://topperharleycoin.com), a community token
 ## What's here
 
 - **`index.html`** — single-page site with live price, 24h change, market cap, holder count, and a 4-frame OHLC chart (15m / 1h / 12h / 24h).
-- **`history.php`** — same-origin proxy that pulls historical OHLC bars from the [Atmos](https://atmos.ag) `pricing_ohlc` GraphQL table. 30-second cache.
+- **`history.php`** — same-origin proxy that pulls historical OHLC bars from the [Atmos](https://atmos.ag) `pricing_ohlc` GraphQL table. 30-second cache (in `cache/`, created on first run).
 - **`holders.php`** — same-origin proxy that pulls the TPC holder count from Suprascan's GraphQL API. 30-second cache.
+- **`assets/chart.umd.min.js`** — vendored [Chart.js](https://www.chartjs.org) 4.4.1 (self-hosted so no third-party CDN sits in the page's trust chain).
 
 ## Live data sources
 
@@ -27,7 +28,7 @@ chmod 600 .ftp-credentials
 ./deploy.sh
 ```
 
-`deploy.sh` uploads the static files to a Forpsi web hosting account via FTP. The credentials file is gitignored.
+`deploy.sh` uploads the static files to a Forpsi web hosting account via FTPS (TLS is required — the script refuses plaintext FTP). The credentials file is gitignored and must not be readable by other users (`chmod 600`).
 
 ## Contract
 
