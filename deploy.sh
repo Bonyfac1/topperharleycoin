@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Deploy index.html to Forpsi web hosting via FTP.
+# Deploy the site to Forpsi web hosting via FTPS.
 #
 # Reads FTP_HOST / FTP_USER / FTP_PASS from .ftp-credentials (gitignored).
-# Uses curl (built into macOS) for the FTP transfer.
+# Uses curl (built into macOS) for the transfer.
 #
-# To force TLS instead of plain FTP, add --ssl-reqd to the curl call below.
+# --ssl-reqd makes curl upgrade the connection to TLS or FAIL — credentials
+# and files never travel in plaintext. (Forpsi's ftpx endpoints support
+# explicit FTPS.)
 
 set -euo pipefail
 
@@ -18,6 +20,7 @@ UPLOADS=(
   "history.php:www/history.php"
   "holders.php:www/holders.php"
   "assets/logo.png:www/assets/logo.png"
+  "assets/chart.umd.min.js:www/assets/chart.umd.min.js"
 )
 
 if [[ ! -f "$CRED_FILE" ]]; then
@@ -36,8 +39,9 @@ else
   perms=$(stat -c '%a' "$CRED_FILE")
 fi
 if [[ "${perms: -2}" != "00" ]]; then
-  echo "Warning: $CRED_FILE is readable by others (mode $perms)." >&2
+  echo "Error: $CRED_FILE is readable by others (mode $perms) — refusing to run." >&2
   echo "Tighten with: chmod 600 $CRED_FILE" >&2
+  exit 1
 fi
 
 # Source the file. Values with spaces or special chars must be quoted in the file.
@@ -66,8 +70,8 @@ done
 for entry in "${UPLOADS[@]}"; do
   local_file="${entry%%:*}"
   remote_path="${entry#*:}"
-  echo "Uploading $local_file -> ftp://$FTP_HOST/$remote_path"
-  curl --fail -S -s --ftp-create-dirs \
+  echo "Uploading $local_file -> ftps://$FTP_HOST/$remote_path"
+  curl --fail -S -s --ssl-reqd --ftp-create-dirs \
        --user "$FTP_USER:$FTP_PASS" \
        --upload-file "$local_file" \
        "ftp://$FTP_HOST/$remote_path"

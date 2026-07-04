@@ -14,9 +14,12 @@
 
 declare(strict_types=1);
 
+date_default_timezone_set('UTC');
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: public, max-age=30');
-header('Access-Control-Allow-Origin: *');
+// No Access-Control-Allow-Origin header: index.html calls this same-origin,
+// and a wildcard would only invite other sites to hotlink the proxy.
 
 const TPC_FA   = '0x99f84c4fda663bf3baf3a1b0980386ca084c3e9340a4d3f8713cd54ec85f4cea';
 const SUPRA_FA = '0x000000000000000000000000000000000000000000000000000000000000000a';
@@ -25,6 +28,7 @@ const ALLOWED_GRANULARITIES = ['15m', '1h', '12h', '24h'];
 const DEFAULT_GRANULARITY = '1h';
 const POINT_LIMIT = 2000;
 const CACHE_TTL   = 30;
+const STALE_MAX   = 6 * 3600;  // stale cache older than 6 h is worse than an honest error
 
 // --- Validate input ---
 $granularity = $_GET['granularity'] ?? DEFAULT_GRANULARITY;
@@ -34,12 +38,32 @@ if (!in_array($granularity, ALLOWED_GRANULARITIES, true)) {
     exit;
 }
 
-$cacheFile = sys_get_temp_dir() . '/tpc-history-' . $granularity . '.json';
+// Cache lives in a per-site directory, not the host-wide temp dir — on shared
+// hosting sys_get_temp_dir() can be shared across tenants, and we serve these
+// bytes verbatim to visitors.
+$cacheDir = __DIR__ . '/cache';
+if (!is_dir($cacheDir)) {
+    @mkdir($cacheDir, 0755, true);
+}
+$cacheFile = $cacheDir . '/tpc-history-' . $granularity . '.json';
+
+// Only ever echo a cache file whose shape matches what we would have produced.
+function readValidCache(string $file): ?string {
+    $raw = @file_get_contents($file);
+    if ($raw === false) {
+        return null;
+    }
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded) || !isset($decoded['points']) || !is_array($decoded['points'])) {
+        return null;
+    }
+    return $raw;
+}
 
 // --- Fresh cache served as-is ---
 if (is_file($cacheFile) && (time() - filemtime($cacheFile)) < CACHE_TTL) {
-    $cached = @file_get_contents($cacheFile);
-    if ($cached !== false) {
+    $cached = readValidCache($cacheFile);
+    if ($cached !== null) {
         echo $cached;
         exit;
     }
@@ -89,11 +113,15 @@ curl_close($ch);
 
 function fail(string $msg): void {
     global $cacheFile;
-    // Prefer serving a stale cache over erroring out.
-    if (is_file($cacheFile)) {
-        $stale = @file_get_contents($cacheFile);
-        if ($stale !== false) {
-            echo $stale;
+    // Prefer serving a stale cache over erroring out — but only up to
+    // STALE_MAX old, and flagged so the payload is honest about its age.
+    if (is_file($cacheFile) && (time() - filemtime($cacheFile)) < STALE_MAX) {
+        $stale = readValidCache($cacheFile);
+        if ($stale !== null) {
+            $decoded = json_decode($stale, true);
+            $decoded['stale'] = true;
+            $decoded['updated_at'] = filemtime($cacheFile);
+            echo json_encode($decoded);
             exit;
         }
     }
@@ -150,8 +178,16 @@ for ($i = count($tpcRows) - 1; $i >= 0; $i--) {
         continue;
     }
     $tpcClose = (float) $row['close_price'];
+    // Atmos timestamps are UTC wall time WITHOUT a zone suffix. Left as-is,
+    // JavaScript's Date.parse would interpret them as the visitor's LOCAL
+    // time, shifting every chart label by the viewer's UTC offset. Strip the
+    // microseconds (Safari chokes on 6-digit fractions) and append 'Z'.
+    $t = $row['created_at'];
+    if (!preg_match('/(Z|[+-]\d\d:?\d\d)$/', $t)) {
+        $t = preg_replace('/\.\d+$/', '', $t) . 'Z';
+    }
     $points[] = [
-        't'     => $row['created_at'],
+        't'     => $t,
         'usd'   => $tpcClose,
         'supra' => $tpcClose / $supraClose,
     ];

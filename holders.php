@@ -12,19 +12,42 @@
 
 declare(strict_types=1);
 
+date_default_timezone_set('UTC');
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: public, max-age=30');
 
 const TPC_FA = '0x99f84c4fda663bf3baf3a1b0980386ca084c3e9340a4d3f8713cd54ec85f4cea';
 const UPSTREAM = 'https://suprascan.io/api/graphql';
-const CACHE_TTL = 30;  // seconds
+const CACHE_TTL = 30;      // seconds
+const STALE_MAX = 3600;    // stale cache older than 1 h is worse than an honest error
 
-$cacheFile = sys_get_temp_dir() . '/tpc-holders-cache.json';
+// Cache lives in a per-site directory, not the host-wide temp dir — on shared
+// hosting sys_get_temp_dir() can be shared across tenants, and we serve these
+// bytes verbatim to visitors.
+$cacheDir = __DIR__ . '/cache';
+if (!is_dir($cacheDir)) {
+    @mkdir($cacheDir, 0755, true);
+}
+$cacheFile = $cacheDir . '/tpc-holders-cache.json';
+
+// Only ever echo a cache file whose shape matches what we would have produced.
+function readValidCache(string $file): ?string {
+    $raw = @file_get_contents($file);
+    if ($raw === false) {
+        return null;
+    }
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded) || !isset($decoded['holders']) || !is_int($decoded['holders'])) {
+        return null;
+    }
+    return $raw;
+}
 
 // Serve fresh cache if we have one.
 if (is_file($cacheFile) && (time() - filemtime($cacheFile)) < CACHE_TTL) {
-    $cached = @file_get_contents($cacheFile);
-    if ($cached !== false) {
+    $cached = readValidCache($cacheFile);
+    if ($cached !== null) {
         echo $cached;
         exit;
     }
@@ -64,11 +87,14 @@ curl_close($ch);
 
 function fail(string $msg): void {
     global $cacheFile;
-    // Prefer serving a stale cache over erroring out.
-    if (is_file($cacheFile)) {
-        $stale = @file_get_contents($cacheFile);
-        if ($stale !== false) {
-            echo $stale;
+    // Prefer serving a stale cache over erroring out — but only up to
+    // STALE_MAX old, and flagged so the payload is honest about its age.
+    if (is_file($cacheFile) && (time() - filemtime($cacheFile)) < STALE_MAX) {
+        $stale = readValidCache($cacheFile);
+        if ($stale !== null) {
+            $decoded = json_decode($stale, true);
+            $decoded['stale'] = true;
+            echo json_encode($decoded);
             exit;
         }
     }

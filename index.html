@@ -6,7 +6,10 @@
 <title>Topper Coin (TPC) — Supra</title>
 <link rel="icon" type="image/png" href="/assets/logo.png" />
 <link rel="apple-touch-icon" href="/assets/logo.png" />
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<!-- Chart.js 4.4.1, self-hosted: no third-party CDN in the trust chain of a
+     page people copy a contract address from, and no blank page when a CDN
+     is blocked or down. -->
+<script src="/assets/chart.umd.min.js"></script>
 <style>
   :root {
     --bg: #0b0f0d;
@@ -214,6 +217,16 @@
     width: 100%;
     height: 380px;
   }
+  .chart-empty {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: var(--text-dim);
+    font-size: 14px;
+    text-align: center;
+    padding: 0 20px;
+  }
 
   .ccy-toggle {
     display: inline-flex;
@@ -409,8 +422,8 @@
           <div>
             <p class="chart-title" id="chartTitle">TPC / USD · Live from Atmos</p>
             <div class="chart-price">
-              <span id="livePrice">$0.0000183</span>
-              <small id="liveChange">+0.00%</small>
+              <span id="livePrice">—</span>
+              <small id="liveChange">—</small>
             </div>
           </div>
           <div class="chart-meta">
@@ -430,17 +443,18 @@
         </div>
         <div class="chart-wrap">
           <canvas id="priceChart"></canvas>
+          <div class="chart-empty" id="chartEmpty" hidden>Price history temporarily unavailable — retrying…</div>
         </div>
       </div>
 
       <div class="stats">
         <div class="stat card">
           <div class="label">Current Price</div>
-          <div class="value" id="statPrice">$0.0000183</div>
+          <div class="value" id="statPrice">—</div>
         </div>
         <div class="stat card">
           <div class="label">24h Change</div>
-          <div class="value" id="statChange">+0.00%</div>
+          <div class="value" id="statChange">—</div>
         </div>
         <div class="stat card">
           <div class="label">Market Cap</div>
@@ -512,14 +526,17 @@
 
 <script>
   // ---- Config ----
-  const FALLBACK_PRICE = 0.0000183;     // used only if the RPC is unreachable
   const TICK_MS = 3000;
   const TPC_DECIMALS = 6;               // matches FA metadata + Atmos pricing row
+  const MAX_POINTS = 2000;              // cap in-memory series growth on long-open tabs
+  const FETCH_TIMEOUT_MS = 8000;        // no fetch may hang the page forever
+  const HISTORY_RETRY_MS = 60_000;      // retry cadence when history failed at load
+  const DAY_MS = 86_400_000;
 
   // The chart shows historical OHLC bars from /history.php (which proxies
   // Atmos GraphQL `pricing_ohlc`). Each frame maps to a fixed bucket size;
-  // the live tick rewrites the most recent bucket every TICK_MS until enough
-  // wall-clock time elapses to roll into a new bucket.
+  // the live tick rewrites the newest bucket's VALUE until wall-clock time
+  // crosses a bucket boundary, then appends a new point.
   const FRAME_INTERVAL_MS = {
     '15m': 15 * 60 * 1000,
     '1h':  60 * 60 * 1000,
@@ -537,13 +554,24 @@
   // — the short form is stale (months old), the long form is the live row.
   const SUPRA_FA  = "0x000000000000000000000000000000000000000000000000000000000000000a";
 
+  // Every fetch gets a hard timeout so a hung upstream can never stall the
+  // page indefinitely (a connection that hangs after accept() never rejects).
+  function fetchT(url, opts = {}) {
+    return fetch(url, { ...opts, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+  }
+
   // ---- Primary source: Atmos Protocol indexer (GraphQL) ----
-  // One round-trip pulls TPC + SUPRA spot USD prices; TPC/SUPRA = ratio.
+  // One round-trip pulls TPC + SUPRA spot USD prices. BOTH displayed prices
+  // derive from this one table: USD directly, SUPRA as the ratio. That keeps
+  // the live tick on the SAME price basis as the historical bars from
+  // history.php (also ratio-based) — mixing bases (e.g. the post-fee
+  // simulate_swap quote, ~40-50% below the ratio) painted a fake cliff at the
+  // newest point of the SUPRA chart.
   const ATMOS_API = "https://api.atmos.ag/graphql";
   const ATMOS_QUERY = `query($addrs:[String!]){pricing(where:{fa_address:{_in:$addrs}}){fa_address usd_price}}`;
 
   async function fetchPricesFromAtmos() {
-    const r = await fetch(ATMOS_API, {
+    const r = await fetchT(ATMOS_API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query: ATMOS_QUERY, variables: { addrs: [TPC_FA, SUPRA_FA] } }),
@@ -562,8 +590,9 @@
   }
 
   // ---- Fallback: Atmos liquidity pool view function on Supra mainnet ----
-  // Reads the TPC/SUPRA and USDC/SUPRA pools directly. Slightly different
-  // from the UI price because it doesn't apply Smart Router multi-hop routing.
+  // Reads the TPC/SUPRA and USDC/SUPRA pools directly. Only used when the
+  // Atmos indexer is unreachable (in which case history.php — same upstream —
+  // is down too, so there is no ratio-based history to clash with).
   const SUPRA_RPC = "https://rpc-mainnet.supra.com/rpc/v1/view";
   const ATMOS_FN  = "0xa4a4a31116e114bf3c4f4728914e6b43db73279a4421b0768993e07248fe2234::liquidity_pool::simulate_swap_exact_in_weighted";
   const TPC_POOL  = "0x5235d477677a6c5f18f98250fa3f27d3ca81885d2ed9affd4049973379d213d6";
@@ -571,7 +600,7 @@
   const ONE_UNIT  = "1000000"; // TPC and SUP_USDC both have 6 decimals
 
   async function simulateSwap(pool, frm, to, amt) {
-    const r = await fetch(SUPRA_RPC, {
+    const r = await fetchT(SUPRA_RPC, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -602,39 +631,15 @@
     };
   }
 
-  // SUPRA-denominated TPC price from the on-chain TPC↔SUPRA pool. Returns
-  // the post-fee output of "swap 1 TPC -> SUPRA", which is the rate the Atmos
-  // swap UI displays. The pricing-table ratio (TPC.usd / SUPRA.usd) yields a
-  // ~50% higher number because Atmos prices SUPRA from deeper pairs that
-  // disagree with the TPC pool's own spot — matching the UI quote is more
-  // useful for users comparing against what they see on Atmos.
-  async function fetchTpcSupraFromSwap() {
-    const out = await simulateSwap(TPC_POOL, TPC_FA, SUPRA_FA, ONE_UNIT);
-    return Number(out) / 1e8;  // SUPRA has 8 decimals
-  }
-
-  // Combined fetch: Atmos pricing for USD (clean spot, matches mcap),
-  // simulate_swap for SUPRA (matches the Atmos swap UI). Run in parallel.
-  // On partial failure, fall through to the next-best derivation.
+  // Combined fetch: Atmos pricing first (consistent basis with history),
+  // on-chain pools only as a fallback when the indexer is down.
   async function fetchTpcPrices() {
-    const [atmos, swap] = await Promise.allSettled([
-      fetchPricesFromAtmos(),
-      fetchTpcSupraFromSwap(),
-    ]);
-
-    if (atmos.status === 'fulfilled' && swap.status === 'fulfilled') {
-      return { usd: atmos.value.usd, supra: swap.value };
+    try {
+      return await fetchPricesFromAtmos();
+    } catch (err) {
+      console.warn('[TPC] Atmos pricing failed, falling back to on-chain pools:', err.message);
+      return fetchPricesFromSupraPool();
     }
-    if (atmos.status === 'fulfilled') {
-      console.warn('[TPC] swap quote failed, using Atmos pricing ratio for SUPRA:', swap.reason?.message);
-      return atmos.value;  // Atmos-derived SUPRA ratio — different from UI but at least populated
-    }
-    if (swap.status === 'fulfilled') {
-      console.warn('[TPC] Atmos pricing failed, using Supra pool for USD:', atmos.reason?.message);
-      const pool = await fetchPricesFromSupraPool();
-      return { usd: pool.usd, supra: swap.value };
-    }
-    throw new Error('all TPC price sources failed (Atmos + Supra RPC)');
   }
 
   // ---- Total supply via the framework's fungible_asset::supply view function.
@@ -643,7 +648,7 @@
   // circulating-supply oracle, and the FA has no locked/escrow tranches we know
   // of, so total ≈ circulating here.
   async function fetchTpcTotalSupply() {
-    const r = await fetch(SUPRA_RPC, {
+    const r = await fetchT(SUPRA_RPC, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -659,16 +664,21 @@
     return Number(BigInt(raw)) / Math.pow(10, TPC_DECIMALS);
   }
 
+  // ---- State ----
   // Parallel histories for the two display currencies. Same length and
-  // timestamps; on every tick we push to both, and the chart reads whichever
-  // one matches `currency`.
+  // timestamps; on every tick we update both, and the chart reads whichever
+  // one matches `currency`. No hardcoded fallback values anywhere: until a
+  // real number arrives, the UI shows an honest "—".
   const history = { USD: [], SUPRA: [] };
   let timestamps = [];
-  let lastPriceUsd   = FALLBACK_PRICE;
-  let lastPriceSupra = 0;            // populated on first successful fetch
+  let lastPriceUsd   = null;         // null until the first successful fetch
+  let lastPriceSupra = null;
+  let lastUpdateAt   = null;         // wall-clock ms of the last successful price update
   let currency = 'USD';              // 'USD' | 'SUPRA'
   let currentFrame = DEFAULT_FRAME;  // '15m' | '1h' | '12h' | '24h'
   let cachedTotalSupply = null;      // human-units (post-decimals); null until fetched
+  let cachedHolders = null;          // real count from the proxy; null renders "—"
+  let frameReq = 0;                  // request token: stale frame fetches are dropped
 
   // ---- Formatters ----
   function fmtTime(d) {
@@ -714,12 +724,19 @@
 
   function fmtNumber(n) { return n.toLocaleString('en-US'); }
 
+  // Atmos/history.php timestamps are UTC; older cached payloads may lack the
+  // 'Z' suffix, and an offset-less string would parse as the visitor's LOCAL
+  // time — shifting the whole chart by their UTC offset. Normalize here too.
+  function parseUtc(t) {
+    return Date.parse(/(Z|[+-]\d\d:?\d\d)$/.test(t) ? t : t + 'Z');
+  }
+
   // Fetch historical OHLC bars from the same-origin /history.php proxy.
-  // Returns { points: [{ t, usd, supra }, ...] } in ascending time order.
+  // Returns [{ t, usd, supra }, ...] in ascending time order.
   // Throws on network/proxy errors so the caller can render a clear empty
   // state instead of fabricated data.
   async function fetchHistory(frame) {
-    const r = await fetch(HISTORY_URL + '?granularity=' + encodeURIComponent(frame));
+    const r = await fetchT(HISTORY_URL + '?granularity=' + encodeURIComponent(frame));
     if (!r.ok) throw new Error('history proxy ' + r.status);
     const j = await r.json();
     if (j.error) throw new Error('history: ' + j.error);
@@ -734,7 +751,7 @@
   // values at the same bucket boundary). Seeds last-tick state from the
   // newest bar so the live tick has something sensible to update.
   function seedHistoryFromPoints(points) {
-    timestamps = points.map(p => Date.parse(p.t));
+    timestamps = points.map(p => parseUtc(p.t));
     history.USD   = points.map(p => Number(p.usd));
     history.SUPRA = points.map(p => Number(p.supra));
     lastPriceUsd   = history.USD[history.USD.length - 1];
@@ -748,15 +765,18 @@
   gradient.addColorStop(0, 'rgba(74, 222, 128, 0.35)');
   gradient.addColorStop(1, 'rgba(74, 222, 128, 0.00)');
 
-  let chart;
+  const elChartEmpty = document.getElementById('chartEmpty');
+  function setChartEmpty(on) { elChartEmpty.hidden = !on; }
+
+  let chart = null;
   function initChart() {
     chart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: timestamps.map(t => fmtAxisLabel(new Date(t))),
+      labels: [],
       datasets: [{
         label: 'TPC / ' + currency,
-        data: history[currency].slice(),
+        data: [],
         borderColor: '#4ade80',
         backgroundColor: gradient,
         borderWidth: 2,
@@ -805,6 +825,16 @@
   });
   }
 
+  // Sync the chart's arrays from state. A lone point gets a visible radius —
+  // with pointRadius 0 a one-point line dataset would draw literally nothing.
+  function syncChartSeries() {
+    if (!chart) return;
+    chart.data.labels = timestamps.map(t => fmtAxisLabel(new Date(t)));
+    chart.data.datasets[0].data = history[currency].slice();
+    chart.data.datasets[0].label = 'TPC / ' + currency;
+    chart.data.datasets[0].pointRadius = history[currency].length < 2 ? 3 : 0;
+  }
+
   // ---- Stats ----
   const elLivePrice = document.getElementById('livePrice');
   const elLiveChange = document.getElementById('liveChange');
@@ -817,13 +847,11 @@
   // Holder count: comes from /holders.php on the same domain — a tiny PHP
   // proxy that calls Suprascan's /api/graphql server-side (their endpoint
   // doesn't send CORS headers, so the browser can't hit it directly).
-  // Fallback if the proxy itself is unreachable on first load.
-  const HOLDERS_FALLBACK = 1247;
+  // No invented fallback: until the proxy answers, the stat shows "—".
   const HOLDERS_REFRESH_MS = 60_000;
-  let cachedHolders = null;  // Number from proxy; null = use fallback
 
   async function fetchHolderCount() {
-    const r = await fetch('/holders.php', { cache: 'no-store' });
+    const r = await fetchT('/holders.php', { cache: 'no-store' });
     if (!r.ok) throw new Error('holders proxy ' + r.status);
     const j = await r.json();
     if (typeof j.holders !== 'number') throw new Error('bad holders payload');
@@ -831,62 +859,120 @@
   }
 
   function setChange(el, pct) {
+    if (pct == null || !Number.isFinite(pct)) {
+      el.textContent = '—';
+      el.classList.remove('up', 'down');
+      return;
+    }
     const sign = pct >= 0 ? '+' : '';
     el.textContent = sign + pct.toFixed(2) + '%';
     el.classList.toggle('up', pct >= 0);
     el.classList.toggle('down', pct < 0);
   }
 
-  function renderStats() {
+  // The "24h Change" stat means exactly that: change against the last bar at
+  // or before 24 hours ago — NOT against the oldest fetched bar (which would
+  // be weeks-to-months back depending on the frame). If the series doesn't
+  // reach 24h into the past, we show "—" rather than a mislabeled number.
+  function change24hPct() {
     const series = history[currency];
-    const first = series[0];
+    if (series.length < 2) return null;
     const last = series[series.length - 1];
-    const changePct = ((last - first) / first) * 100;
-
-    elLivePrice.textContent = fmtPrice(last);
-    setChange(elLiveChange, changePct);
-    elLiveTime.textContent = fmtTime(new Date(timestamps[timestamps.length - 1]));
-
-    elStatPrice.textContent = fmtPrice(last);
-    setChange(elStatChange, changePct);
-    // Market cap is always USD — derived from the USD series, regardless of the
-    // currency toggle.
-    if (cachedTotalSupply != null) {
-      elStatMcap.textContent = fmtCompact(lastPriceUsd * cachedTotalSupply);
-    } // else leave whatever was last shown (initial DOM value or previous tick)
-    elStatHolders.textContent = fmtNumber(cachedHolders ?? HOLDERS_FALLBACK);
+    const cutoff = Date.now() - DAY_MS;
+    let baseIdx = -1;
+    for (let i = timestamps.length - 1; i >= 0; i--) {
+      if (timestamps[i] <= cutoff) { baseIdx = i; break; }
+    }
+    if (baseIdx < 0) return null;
+    const base = series[baseIdx];
+    if (!Number.isFinite(base) || base <= 0 || !Number.isFinite(last)) return null;
+    return ((last - base) / base) * 100;
   }
 
-  // Push a fresh tick onto both currency series, advancing the bucket if
-  // enough time has passed for the active frame.
+  function renderStats() {
+    const series = history[currency];
+    const last = series.length ? series[series.length - 1] : null;
+
+    elLivePrice.textContent = last != null ? fmtPrice(last) : '—';
+    elStatPrice.textContent = last != null ? fmtPrice(last) : '—';
+
+    const pct = change24hPct();
+    setChange(elLiveChange, pct);
+    setChange(elStatChange, pct);
+
+    if (lastUpdateAt != null) {
+      elLiveTime.textContent = fmtTime(new Date(lastUpdateAt));
+    } else if (timestamps.length) {
+      elLiveTime.textContent = fmtTime(new Date(timestamps[timestamps.length - 1]));
+    } else {
+      elLiveTime.textContent = '—';
+    }
+
+    // Market cap is always USD — derived from the USD price regardless of the
+    // currency toggle. Only rendered once both real inputs exist.
+    if (cachedTotalSupply != null && lastPriceUsd != null) {
+      elStatMcap.textContent = fmtCompact(lastPriceUsd * cachedTotalSupply);
+    }
+    elStatHolders.textContent = cachedHolders != null ? fmtNumber(cachedHolders) : '—';
+  }
+
+  // Push a fresh tick onto both currency series. A new point is appended only
+  // when wall-clock time crosses a bucket boundary; otherwise only the newest
+  // bucket's VALUES are rewritten — its timestamp stays put, so (a) the bar
+  // keeps its true time and (b) the boundary comparison can actually fire
+  // (the old code reset the reference timestamp every 3 s, so no new bucket
+  // could ever start and long-open tabs stopped accumulating history).
   function applyLivePrices(usd, supra) {
     const now = Date.now();
     lastPriceUsd = usd;
     lastPriceSupra = supra;
-    if (timestamps.length === 0) return;
-    const bucketMs = FRAME_INTERVAL_MS[currentFrame];
-    const lastBucketTime = timestamps[timestamps.length - 1];
-    if (now - lastBucketTime >= bucketMs) {
-      history.USD.push(usd); history.SUPRA.push(supra); timestamps.push(now);
-    } else {
-      history.USD[history.USD.length - 1]     = usd;
-      history.SUPRA[history.SUPRA.length - 1] = supra;
-      timestamps[timestamps.length - 1]       = now;
-    }
-    chart.data.labels = timestamps.map(t => fmtAxisLabel(new Date(t)));
-    chart.data.datasets[0].data = history[currency].slice();
-    chart.update('none');
+    lastUpdateAt = now;
 
+    if (timestamps.length === 0) {
+      timestamps.push(now);
+      history.USD.push(usd);
+      history.SUPRA.push(supra);
+      setChartEmpty(false);
+    } else {
+      const bucketMs = FRAME_INTERVAL_MS[currentFrame];
+      const lastBucket = Math.floor(timestamps[timestamps.length - 1] / bucketMs);
+      const nowBucket  = Math.floor(now / bucketMs);
+      if (nowBucket > lastBucket) {
+        timestamps.push(now);
+        history.USD.push(usd);
+        history.SUPRA.push(supra);
+        if (timestamps.length > MAX_POINTS) {
+          timestamps.shift();
+          history.USD.shift();
+          history.SUPRA.shift();
+        }
+      } else {
+        history.USD[history.USD.length - 1]     = usd;
+        history.SUPRA[history.SUPRA.length - 1] = supra;
+      }
+    }
+
+    if (chart) {
+      syncChartSeries();
+      chart.update('none');
+    }
     renderStats();
   }
 
+  // In-flight guards: a slow upstream must not stack overlapping requests
+  // (out-of-order responses would let an older price overwrite a newer one).
+  let ticking = false;
   async function tick() {
+    if (ticking) return;
+    ticking = true;
     try {
       const { usd, supra } = await fetchTpcPrices();
       applyLivePrices(usd, supra);
     } catch (err) {
       // Network blip — leave chart untouched, surface in console.
       console.warn('[TPC] live price fetch failed:', err.message);
+    } finally {
+      ticking = false;
     }
     // If supply hasn't loaded yet, retry on each tick until it does.
     if (cachedTotalSupply == null) {
@@ -899,13 +985,18 @@
     }
   }
 
+  let refreshingHolders = false;
   async function refreshHolders() {
+    if (refreshingHolders) return;
+    refreshingHolders = true;
     try {
       cachedHolders = await fetchHolderCount();
       renderStats();
     } catch (err) {
       console.warn('[TPC] holders fetch failed:', err.message);
-      // Keep previous value (or HOLDERS_FALLBACK if we never had one).
+      // Keep previous value (or "—" if we never had one).
+    } finally {
+      refreshingHolders = false;
     }
   }
 
@@ -914,14 +1005,15 @@
     if (next !== 'USD' && next !== 'SUPRA') return;
     if (next === currency) return;
     currency = next;
-    document.querySelectorAll('.ccy-btn').forEach(btn => {
+    // Scope to [data-ccy] — the frame buttons share the .ccy-btn class, and an
+    // unscoped loop would wipe their active state on every currency switch.
+    document.querySelectorAll('.ccy-btn[data-ccy]').forEach(btn => {
       btn.classList.toggle('is-active', btn.dataset.ccy === currency);
       btn.setAttribute('aria-selected', btn.dataset.ccy === currency ? 'true' : 'false');
     });
     document.getElementById('chartTitle').textContent = 'TPC / ' + currency + ' · Live from Atmos';
     if (chart) {
-      chart.data.datasets[0].label = 'TPC / ' + currency;
-      chart.data.datasets[0].data = history[currency].slice();
+      syncChartSeries();
       chart.update();
     }
     renderStats();
@@ -931,24 +1023,32 @@
   });
 
   // ---- Time frame toggle ----
-  // Refetches history at the new granularity. The live tick is left running;
-  // its next pass will rewrite the latest bucket on the new series.
+  // Fetch first, commit after: currentFrame and the button highlight change
+  // only once the new frame's data actually arrived. A request token drops
+  // out-of-order responses from rapid clicking, so the chart can never end up
+  // showing one frame's data under another frame's active button.
   async function setFrame(next) {
     if (!FRAME_INTERVAL_MS.hasOwnProperty(next)) return;
     if (next === currentFrame) return;
-    currentFrame = next;
-    document.querySelectorAll('.ccy-btn[data-frame]').forEach(btn => {
-      btn.classList.toggle('is-active', btn.dataset.frame === currentFrame);
-      btn.setAttribute('aria-selected', btn.dataset.frame === currentFrame ? 'true' : 'false');
-    });
+    const token = ++frameReq;
     try {
-      const points = await fetchHistory(currentFrame);
+      const points = await fetchHistory(next);
+      if (token !== frameReq) return;   // a newer click superseded this one
+      currentFrame = next;
+      document.querySelectorAll('.ccy-btn[data-frame]').forEach(btn => {
+        btn.classList.toggle('is-active', btn.dataset.frame === currentFrame);
+        btn.setAttribute('aria-selected', btn.dataset.frame === currentFrame ? 'true' : 'false');
+      });
       seedHistoryFromPoints(points);
-      chart.data.labels = timestamps.map(t => fmtAxisLabel(new Date(t)));
-      chart.data.datasets[0].data = history[currency].slice();
-      chart.update();
+      setChartEmpty(false);
+      if (chart) {
+        syncChartSeries();
+        chart.update();
+      }
       renderStats();
     } catch (err) {
+      if (token !== frameReq) return;
+      // Fetch failed: state and highlight intentionally stay on the old frame.
       console.warn('[TPC] frame change failed:', err.message);
     }
   }
@@ -957,9 +1057,10 @@
   });
 
   // ---- Init: fetch history + live prices + supply + holders, then start ticking ----
-  // History is required for the chart; if it fails we still render an empty
-  // chart with whatever the live tick produces. Live price + supply + holders
-  // run in parallel; their failures are non-fatal.
+  // History is required for the chart; if it fails we seed from the first
+  // real live price (a single honest point) and keep retrying in the
+  // background. If EVERYTHING fails, the page shows "—" everywhere and an
+  // explicit chart message — never invented numbers.
   (async function init() {
     const [historyResult, prices, supply, holders] = await Promise.all([
       fetchHistory(currentFrame).catch(err => {
@@ -967,15 +1068,15 @@
         return null;
       }),
       fetchTpcPrices().catch(err => {
-        console.warn('[TPC] initial price fetch failed, using fallback:', err.message);
-        return { usd: FALLBACK_PRICE, supra: 0 };
+        console.warn('[TPC] initial price fetch failed:', err.message);
+        return null;
       }),
       fetchTpcTotalSupply().catch(err => {
         console.warn('[TPC] initial supply fetch failed:', err.message);
         return null;
       }),
       fetchHolderCount().catch(err => {
-        console.warn('[TPC] initial holders fetch failed, using fallback:', err.message);
+        console.warn('[TPC] initial holders fetch failed:', err.message);
         return null;
       }),
     ]);
@@ -984,19 +1085,50 @@
 
     if (historyResult) {
       seedHistoryFromPoints(historyResult);
-    } else {
-      // No history available — start with a single live point so the chart
-      // is honest about what it shows (no fabricated random walk).
+    } else if (prices) {
+      // No history available — start with a single REAL live point.
       timestamps = [Date.now()];
       history.USD   = [prices.usd];
       history.SUPRA = [prices.supra];
+    }
+    if (prices) {
       lastPriceUsd   = prices.usd;
       lastPriceSupra = prices.supra;
+      lastUpdateAt   = Date.now();
     }
-    initChart();
+
+    // If the chart library failed to load, the stats row still works.
+    try {
+      initChart();
+      syncChartSeries();
+      chart.update('none');
+    } catch (err) {
+      console.warn('[TPC] chart init failed (library missing?):', err.message);
+      chart = null;
+    }
+    setChartEmpty(timestamps.length === 0);
     renderStats();
     setInterval(tick, TICK_MS);
     setInterval(refreshHolders, HOLDERS_REFRESH_MS);
+
+    // History failed at load → keep retrying quietly until it arrives.
+    if (!historyResult) {
+      const retryTimer = setInterval(async () => {
+        try {
+          const points = await fetchHistory(currentFrame);
+          seedHistoryFromPoints(points);
+          setChartEmpty(false);
+          if (chart) {
+            syncChartSeries();
+            chart.update();
+          }
+          renderStats();
+          clearInterval(retryTimer);
+        } catch (err) {
+          console.warn('[TPC] history retry failed:', err.message);
+        }
+      }, HISTORY_RETRY_MS);
+    }
   })();
 
   // ---- Copy button ----
